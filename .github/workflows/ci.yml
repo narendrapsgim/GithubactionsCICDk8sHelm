@@ -1,0 +1,69 @@
+name: Java CI with Gradle
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  OPENSHIFT_SERVER_URL: "https://api.sandbox-m3.1530.p1.openshiftapps.com:6443"
+  OPENSHIFT_TOKEN: ${{ secrets.OPENSHIFT_DEV_TOKEN }}
+  OPENSHIFT_NAMESPACE: "uniwinux-dev"   
+  DOCKER_IMAGE: "docker.io/openjdk:8-jre-alpine"
+  TIMEZONEREGION: "America"
+  TIMEZONECITY: "Toronto"
+  PULLSECRET: pullsecret
+  REGISTRY: docker.io
+  CHARTVERSION: 1.0.0
+  REPOSITORY: openjdk
+  TAG: 8-jre-alpine
+  PORT: 8080
+  HOSTNAME: jvm-uniwinux-dev.apps.sandbox-m3.1530.p1.openshiftapps.com
+     
+jobs:
+  build-java:
+
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build with Gradle
+      run: |
+        echo "Starting gradle build"
+        set -x
+        export JAR_FOLDER=build/libs
+        # build the binary
+        ./gradlew build -x test
+        # get the parameters of gradle
+        ./gradlew properties -q >p    
+        # save the parameters to be available as env
+        export GRADLE_NAME=$(cat p | grep "name:" | awk '{print $2}')  
+        echo GRADLE_NAME=$GRADLE_NAME >> $GITHUB_ENV 
+        export GRADLE_VERSION=$(cat p | grep "version:" | awk '{print $2}')   
+        echo GRADLE_VERSION=$GRADLE_VERSION >> $GITHUB_ENV
+        [[ -f $JAR_FOLDER/$GRADLE_NAME-$GRADLE_VERSION.jar ]] && echo "GRADLE_EXT=jar" >> $GITHUB_ENV \
+           && export GRADLE_EXT=jar
+        if [[ "$GRADLE_EXT" == "" ]]; then 
+          [[ -f $JAR_FOLDER/$GRADLE_NAME-$GRADLE_VERSION.war ]] && echo "GRADLE_EXT=war" >> $GITHUB_ENV \
+            && export GRADLE_EXT=war
+        fi
+        if [[ "$GRADLE_EXT" == "" ]]; then echo "Cannot determine the file extension!" && exit 1; fi  
+        export GRADLE_BIN=$GRADLE_NAME-$GRADLE_VERSION.$GRADLE_EXT 
+        echo GRADLE_BIN=$GRADLE_BIN >> $GITHUB_ENV
+        echo ENV_CONTEXT=$GRADLE_NAME >> $GITHUB_ENV
+        cp $JAR_FOLDER/$GRADLE_BIN . 
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        
