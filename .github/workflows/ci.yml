@@ -133,3 +133,20 @@ jobs:
         echo -----------verify values.yaml
         cat ocp/helm/values.yaml     
               
+    - name: Install Helm
+      uses: azure/setup-helm@v4.2.0
+      with:
+        version: 'latest' # default is latest (stable)
+      id: install
+    
+    - name: Deploy
+      run: |
+        cd ocp/helm 
+        # update 
+        helm dependency update
+        # helm check     
+        helm lint . || exit 1 
+        # helm deploy the app
+        # you can only use either template or upgrade/install at a time 
+        helm upgrade --install ${{ env.GRADLE_NAME }} .        
+         
