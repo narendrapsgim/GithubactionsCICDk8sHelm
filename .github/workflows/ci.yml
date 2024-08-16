@@ -101,4 +101,35 @@ jobs:
         $(cat /tmp/oc) create secret docker-registry ${{ env.PULLSECRET}} \
         --docker-server="${{ env.REGISTRY }}" --docker-username="${{ secrets.DOCKER_USERNAME }}" \
         --docker-password="${{ secrets.DOCKER_PASSWORD }}" --docker-email=unused 2>/dev/null || true    
-                   
+   
+    - name: Execute template for helm
+      run: |
+        # set debug
+        set -x
+        # to remove the warnings on the console output
+        chmod 600 -R ocp/helm/*.yaml
+        # expose replace function
+        . ocp/scripts/s_replace.sh
+        # update the template  
+        declare -a arr=("ocp/helm/Chart.yaml" "ocp/helm/values.yaml")
+        ## now loop through the above array
+        for i in "${arr[@]}"
+        do
+            s_replace "xNAMESPACEx" "${{ env.OPENSHIFT_NAMESPACE }}" "$i"
+            s_replace "xNAMEx" "${{ env.GRADLE_NAME }}" "$i"
+            s_replace "xPULLSECRETx" "${{ env.PULLSECRET }}" "$i"
+            s_replace "xCHARTVERSIONx" "${{ env.CHARTVERSION }}" "$i"
+            s_replace "xAPPVERSIONx" "${{ env.GRADLE_VERSION }}" "$i"
+            s_replace "xGRADLE_BINx" "${{ env.GRADLE_BIN }}" "$i"
+            s_replace "xREGISTRYx" "${{ env.REGISTRY }}" "$i"
+            s_replace "xREPOSITORYx" "${{ env.REPOSITORY }}" "$i"
+            s_replace "xTAGx" "${{ env.TAG }}" "$i"
+            s_replace "xDOCKER_USERx" "${{ secrets.DOCKER_USERNAME }}" "$i"      
+            s_replace "xPORTx" "${{ env.PORT }}" "$i" 
+            s_replace "xHOSTNAMEx" "${{ env.HOSTNAME }}" "$i"
+        done
+        echo -----------verify Chart.yaml
+        cat ocp/helm/Chart.yaml
+        echo -----------verify values.yaml
+        cat ocp/helm/values.yaml     
+              
