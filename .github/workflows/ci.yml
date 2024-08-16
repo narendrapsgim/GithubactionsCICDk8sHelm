@@ -87,3 +87,18 @@ jobs:
         openshift_server_url: ${{ env.OPENSHIFT_SERVER_URL }}
         openshift_token: ${{ env.OPENSHIFT_TOKEN }}
         namespace: ${{ env.OPENSHIFT_NAMESPACE }}            
+
+    - name: Install oc cli
+      uses: redhat-actions/oc-installer@v1
+      with:
+        oc_version: 'latest'        
+
+    - name: Create pullsecret
+      run: |
+        # Capture the path of oc
+        which oc >/tmp/oc
+        # Execute oc (with path)
+        $(cat /tmp/oc) create secret docker-registry ${{ env.PULLSECRET}} \
+        --docker-server="${{ env.REGISTRY }}" --docker-username="${{ secrets.DOCKER_USERNAME }}" \
+        --docker-password="${{ secrets.DOCKER_PASSWORD }}" --docker-email=unused 2>/dev/null || true    
+                   
